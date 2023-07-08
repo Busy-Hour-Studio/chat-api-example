@@ -49,6 +49,11 @@ export const ENVIRONMENT_NAME = {
   },
 };
 
+export const CHAT_TYPE = {
+  PRIVATE: 'private',
+  GROUP: 'group',
+} as const;
+
 // --- SEQUELIZE SPECIFIC CONFIGURATION --- //
 
 export const DB_CONFIG_KEY = {

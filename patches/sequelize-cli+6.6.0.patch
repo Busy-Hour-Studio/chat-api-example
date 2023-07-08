@@ -1,0 +1,345 @@
+diff --git a/node_modules/sequelize-cli/lib/assets/migrations/create-table.ts b/node_modules/sequelize-cli/lib/assets/migrations/create-table.ts
+new file mode 100644
+index 0000000..d226a65
+--- /dev/null
++++ b/node_modules/sequelize-cli/lib/assets/migrations/create-table.ts
+@@ -0,0 +1,34 @@
++import Sequel, { QueryInterface } from 'sequelize';
++
++export default {
++  async up (queryInterface: QueryInterface, Sequelize: typeof Sequel) {
++    await queryInterface.createTable('<%= tableName %>', {
++      id: {
++        allowNull: false,
++        autoIncrement: true,
++        primaryKey: true,
++        type: Sequelize.INTEGER
++      },
++
++      <% attributes.forEach(function(attribute) { %>
++        <%= attribute.fieldName %>: {
++          type: Sequelize.<%= attribute.dataFunction ? `${attribute.dataFunction.toUpperCase()}(Sequelize.${attribute.dataType.toUpperCase()})` : attribute.dataValues ? `${attribute.dataType.toUpperCase()}(${attribute.dataValues})` : attribute.dataType.toUpperCase() %>
++        },
++      <% }) %>
++
++      <%= createdAt %>: {
++        allowNull: false,
++        type: Sequelize.DATE
++      },
++
++      <%= updatedAt %>: {
++        allowNull: false,
++        type: Sequelize.DATE
++      }
++    });
++  },
++
++  async down (queryInterface: QueryInterface, Sequelize: typeof Sequel) {
++    await queryInterface.dropTable('<%= tableName %>');
++  }
++};
+diff --git a/node_modules/sequelize-cli/lib/assets/migrations/skeleton.ts b/node_modules/sequelize-cli/lib/assets/migrations/skeleton.ts
+new file mode 100644
+index 0000000..b228dee
+--- /dev/null
++++ b/node_modules/sequelize-cli/lib/assets/migrations/skeleton.ts
+@@ -0,0 +1,21 @@
++import Sequel, { QueryInterface } from 'sequelize';
++
++export default {
++  async up(queryInterface: QueryInterface, Sequelize: typeof Sequel) {
++    /**
++     * Add altering commands here.
++     *
++     * Example:
++     * await queryInterface.createTable('users', { id: Sequelize.INTEGER });
++     */
++  },
++
++  async down(queryInterface: QueryInterface, Sequelize: typeof Sequel) {
++    /**
++     * Add reverting commands here.
++     *
++     * Example:
++     * await queryInterface.dropTable('users');
++     */
++  },
++};
+diff --git a/node_modules/sequelize-cli/lib/assets/models/model.ts b/node_modules/sequelize-cli/lib/assets/models/model.ts
+new file mode 100644
+index 0000000..d233b55
+--- /dev/null
++++ b/node_modules/sequelize-cli/lib/assets/models/model.ts
+@@ -0,0 +1,28 @@
++import { DataTypes as DT, Model, Sequelize } from 'sequelize';
++import { Database } from 'sequelize-db-type/helper'
++
++export default (sequelize: Sequelize, DataTypes: typeof DT) => {
++  class <%= name %> extends Model {
++    /**
++     * Helper method for defining associations.
++     * This method is not a part of Sequelize lifecycle.
++     * The `models/index` file will call this method automatically.
++     */
++    static associate (models: Database) {
++      // define association here
++    }
++  }
++
++  <%= name %>.init({
++    <% attributes.forEach(function(attribute, index) { %>
++      <%= attribute.fieldName %>: DataTypes.<%= attribute.dataFunction ? `${attribute.dataFunction.toUpperCase()}(DataTypes.${attribute.dataType.toUpperCase()})` : attribute.dataValues ? `${attribute.dataType.toUpperCase()}(${attribute.dataValues})` : attribute.dataType.toUpperCase() %>
++      <%= (Object.keys(attributes).length - 1) > index ? ',' : '' %>
++    <% }) %>
++  }, {
++    sequelize,
++    modelName: '<%= name %>',
++    <%= underscored ? 'underscored: true,' : '' %>
++  });
++
++  return <%= name %>;
++};
+diff --git a/node_modules/sequelize-cli/lib/assets/seeders/skeleton.ts b/node_modules/sequelize-cli/lib/assets/seeders/skeleton.ts
+new file mode 100644
+index 0000000..fe2ee49
+--- /dev/null
++++ b/node_modules/sequelize-cli/lib/assets/seeders/skeleton.ts
+@@ -0,0 +1,24 @@
++import Sequel, { QueryInterface } from 'sequelize';
++
++export default {
++  async up(queryInterface: QueryInterface, Sequelize: typeof Sequel) {
++    /**
++     * Add seed commands here.
++     *
++     * Example:
++     * await queryInterface.bulkInsert('People', [{
++     *   name: 'John Doe',
++     *   isBetaMember: false
++     * }], {});
++     */
++  },
++
++  async down(queryInterface: QueryInterface, Sequelize: typeof Sequel) {
++    /**
++     * Add commands to revert seed here.
++     *
++     * Example:
++     * await queryInterface.bulkDelete('People', null, {});
++     */
++  },
++};
+diff --git a/node_modules/sequelize-cli/lib/commands/migrate.js b/node_modules/sequelize-cli/lib/commands/migrate.js
+index 83a021c..7d668e2 100644
+--- a/node_modules/sequelize-cli/lib/commands/migrate.js
++++ b/node_modules/sequelize-cli/lib/commands/migrate.js
+@@ -5,6 +5,7 @@ var _yargs = require("../core/yargs");
+ var _migrator = require("../core/migrator");
+ var _helpers = _interopRequireDefault(require("../helpers"));
+ var _lodash = _interopRequireDefault(require("lodash"));
++var _dbType = require('sequelize-db-type');
+ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+ exports.builder = yargs => (0, _yargs._baseOptions)(yargs).option('to', {
+   describe: 'Migration name to run migrations until',
+@@ -22,6 +23,9 @@ exports.handler = async function (args) {
+ 
+   // legacy, gulp used to do this
+   await _helpers.default.config.init();
++
++  await _dbType.main();
++
+   switch (command) {
+     case 'db:migrate':
+       await migrate(args);
+@@ -33,6 +37,7 @@ exports.handler = async function (args) {
+       await migrationStatus(args);
+       break;
+   }
++
+   _process.default.exit(0);
+ };
+ function migrate(args) {
+diff --git a/node_modules/sequelize-cli/lib/commands/migration_generate.js b/node_modules/sequelize-cli/lib/commands/migration_generate.js
+index c0d95a0..d77f994 100644
+--- a/node_modules/sequelize-cli/lib/commands/migration_generate.js
++++ b/node_modules/sequelize-cli/lib/commands/migration_generate.js
+@@ -1,10 +1,12 @@
+ "use strict";
+ 
++var _path = _interopRequireDefault(require("path"));
+ var _process = _interopRequireDefault(require("process"));
+ var _yargs = require("../core/yargs");
+ var _helpers = _interopRequireDefault(require("../helpers"));
+ var _fs = _interopRequireDefault(require("fs"));
+ var _cliColor = _interopRequireDefault(require("cli-color"));
++var _dbType = require('sequelize-db-type');
+ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+ exports.builder = yargs => (0, _yargs._underscoreOption)((0, _yargs._baseOptions)(yargs).option('name', {
+   describe: 'Defines the name of the migration',
+@@ -12,10 +14,20 @@ exports.builder = yargs => (0, _yargs._underscoreOption)((0, _yargs._baseOptions
+   demandOption: true
+ })).argv;
+ exports.handler = function (args) {
+-  _helpers.default.init.createMigrationsFolder();
+-  _fs.default.writeFileSync(_helpers.default.path.getMigrationPath(args.name), _helpers.default.template.render('migrations/skeleton.js', {}, {
++  const migrationPath = _helpers.default.path.getMigrationPath(args.name);
++  const jsContent = _helpers.default.template.render('migrations/skeleton.js', {}, {
++    beautify: false
++  });
++  const tsContent = _helpers.default.template.render('migrations/skeleton.ts', {}, {
+     beautify: false
+-  }));
+-  _helpers.default.view.log('New migration was created at', _cliColor.default.blueBright(_helpers.default.path.getMigrationPath(args.name)), '.');
++  });
++
++  const migrationNames = _path.default.basename(migrationPath).split('.');
++  migrationNames.pop();
++  
++  _helpers.default.init.createMigrationsFolder();
++  _fs.default.writeFileSync(migrationPath, jsContent);
++  _dbType.writer(migrationNames.join('.'), tsContent, 'migration');
++  _helpers.default.view.log('New migration was created at', _cliColor.default.blueBright(migrationPath), '.');
+   _process.default.exit(0);
+ };
+diff --git a/node_modules/sequelize-cli/lib/commands/model_generate.js b/node_modules/sequelize-cli/lib/commands/model_generate.js
+index 287bc6b..1195927 100644
+--- a/node_modules/sequelize-cli/lib/commands/model_generate.js
++++ b/node_modules/sequelize-cli/lib/commands/model_generate.js
+@@ -18,12 +18,12 @@ exports.builder = yargs => (0, _yargs._underscoreOption)((0, _yargs._baseOptions
+   type: 'string',
+   demandOption: false
+ })).argv;
+-exports.handler = function (args) {
++exports.handler = async function (args) {
+   ensureModelsFolder();
+   ensureMigrationsFolder();
+   checkModelFileExistence(args);
+   try {
+-    _helpers.default.model.generateFile(args);
++    await _helpers.default.model.generateFile(args);
+   } catch (err) {
+     _helpers.default.view.error(err.message);
+   }
+diff --git a/node_modules/sequelize-cli/lib/commands/seed_generate.js b/node_modules/sequelize-cli/lib/commands/seed_generate.js
+index b072963..8ba1cf4 100644
+--- a/node_modules/sequelize-cli/lib/commands/seed_generate.js
++++ b/node_modules/sequelize-cli/lib/commands/seed_generate.js
+@@ -5,6 +5,7 @@ var _yargs = require("../core/yargs");
+ var _helpers = _interopRequireDefault(require("../helpers"));
+ var _fs = _interopRequireDefault(require("fs"));
+ var _cliColor = _interopRequireDefault(require("cli-color"));
++var _dbType = require('sequelize-db-type');
+ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+ exports.builder = yargs => (0, _yargs._baseOptions)(yargs).option('name', {
+   describe: 'Defines the name of the seed',
+@@ -12,10 +13,17 @@ exports.builder = yargs => (0, _yargs._baseOptions)(yargs).option('name', {
+   demandOption: true
+ }).argv;
+ exports.handler = function (args) {
+-  _helpers.default.init.createSeedersFolder();
+-  _fs.default.writeFileSync(_helpers.default.path.getSeederPath(args.name), _helpers.default.template.render('seeders/skeleton.js', {}, {
++  const seederPath = _helpers.default.path.getSeederPath(args.name);
++  const jsContent = _helpers.default.template.render('seeders/skeleton.js', {}, {
++    beautify: false
++  });
++  const tsContent = _helpers.default.template.render('seeders/skeleton.ts', {}, {
+     beautify: false
+-  }));
+-  _helpers.default.view.log('New seed was created at', _cliColor.default.blueBright(_helpers.default.path.getSeederPath(args.name)), '.');
++  });
++  
++  _helpers.default.init.createSeedersFolder();
++  _fs.default.writeFileSync(seederPath, jsContent);
++  _dbType.writer(args.name, tsContent, 'seeder');
++  _helpers.default.view.log('New seed was created at', _cliColor.default.blueBright(seederPath), '.');
+   _process.default.exit(0);
+ };
+diff --git a/node_modules/sequelize-cli/lib/helpers/migration-helper.js b/node_modules/sequelize-cli/lib/helpers/migration-helper.js
+index 204dac0..d31c5be 100644
+--- a/node_modules/sequelize-cli/lib/helpers/migration-helper.js
++++ b/node_modules/sequelize-cli/lib/helpers/migration-helper.js
+@@ -1,7 +1,9 @@
+ "use strict";
+ 
++var _path = _interopRequireDefault(require("path"));
+ var _lodash = _interopRequireDefault(require("lodash"));
+ var _index = _interopRequireDefault(require("./index"));
++var _dbType = require('sequelize-db-type');
+ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+ const Sequelize = _index.default.generic.getSequelize();
+ module.exports = {
+@@ -9,12 +11,17 @@ module.exports = {
+     return Sequelize.Utils.pluralize(modelName);
+   },
+   generateTableCreationFileContent(args) {
+-    return _index.default.template.render('migrations/create-table.js', {
++    const data = {
+       tableName: this.getTableName(args.name),
+       attributes: _index.default.model.transformAttributes(args.attributes),
+       createdAt: args.underscored ? 'created_at' : 'createdAt',
+       updatedAt: args.underscored ? 'updated_at' : 'updatedAt'
+-    });
++    };
++
++    return {
++      js: _index.default.template.render('migrations/create-table.js', data),
++      ts: _index.default.template.render('migrations/create-table.ts', data),
++    };
+   },
+   generateMigrationName(args) {
+     return _lodash.default.trimStart(_lodash.default.kebabCase('create-' + args.name), '-');
+@@ -22,6 +29,12 @@ module.exports = {
+   generateTableCreationFile(args) {
+     const migrationName = this.generateMigrationName(args);
+     const migrationPath = _index.default.path.getMigrationPath(migrationName);
+-    _index.default.asset.write(migrationPath, this.generateTableCreationFileContent(args));
++    const content = this.generateTableCreationFileContent(args);
++
++    const migrationNames = _path.default.basename(migrationPath).split('.');
++    migrationNames.pop();
++
++    _index.default.asset.write(migrationPath, content.js);
++    _dbType.writer(migrationNames.join('.'), content.ts, 'migration');
+   }
+ };
+diff --git a/node_modules/sequelize-cli/lib/helpers/model-helper.js b/node_modules/sequelize-cli/lib/helpers/model-helper.js
+index 994cce1..bbe5846 100644
+--- a/node_modules/sequelize-cli/lib/helpers/model-helper.js
++++ b/node_modules/sequelize-cli/lib/helpers/model-helper.js
+@@ -1,6 +1,7 @@
+ "use strict";
+ 
+ var _index = _interopRequireDefault(require("./index"));
++var _dbType = require('sequelize-db-type');
+ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+ const Sequelize = _index.default.generic.getSequelize();
+ const validAttributeFunctionType = ['array', 'enum'];
+@@ -83,15 +84,25 @@ module.exports = {
+     });
+   },
+   generateFileContent(args) {
+-    return _index.default.template.render('models/model.js', {
++    const data = {
+       name: args.name,
+       attributes: this.transformAttributes(args.attributes),
+       underscored: args.underscored
+-    });
++    };
++
++    return {
++      js: _index.default.template.render('models/model.js', data),
++      ts: _index.default.template.render('models/model.ts', data),
++    };
+   },
+   generateFile(args) {
+     const modelPath = _index.default.path.getModelPath(args.name);
+-    _index.default.asset.write(modelPath, this.generateFileContent(args));
++    const content = this.generateFileContent(args);
++
++    _index.default.asset.write(modelPath, content.js);
++    _dbType.writer(args.name, content.ts, 'model');
++
++    return _dbType.main();
+   },
+   modelFileExists(filePath) {
+     return _index.default.path.existsSync(filePath);
